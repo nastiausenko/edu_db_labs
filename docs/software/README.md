@@ -194,4 +194,423 @@ INSERT INTO `DBLabs`.`Role` (`name`, `description`) VALUES ('Admin', 'The user i
 COMMIT;
 ```
 
-- RESTfull сервіс для управління даними
+## RESTfull сервіс для управління даними
+
+### Вхідний файл програми
+
+```js
+const express = require("express");
+const cors = require("cors");
+const quetsionRouter = require("./routes/quetsionRouter");
+const quizRouter = require("./routes/quizRouter");
+const userRouter = require("./routes/userRouter");
+const AppError = require("./utils/appError");
+const errorHandler = require("./utils/errorHandler");
+const app = express();
+
+app.use(express.json());
+app.use(cors());
+app.use(quetsionRouter);
+app.use(quizRouter);
+app.use(userRouter);
+
+app.all("*", (req, res, next) => {
+    next(new AppError(`The URL ${req.originalUrl} does not exists`,404));
+});
+app.use(errorHandler);
+
+const PORT = 3000;
+app.listen(PORT, () => {
+   console.log(`Server is running on port ${PORT}`);
+});
+
+module.exports = app;
+```
+
+### Файл для встановлення доступу до бази даних
+
+```js
+const mysql = require("mysql2");
+require("dotenv").config();
+
+const dbConnect = mysql.createConnection({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE,
+})
+
+dbConnect.connect();
+
+module.exports = dbConnect;
+```
+
+### CRUD для користувачів
+
+#### Маршрути
+
+```js
+const express = require("express");
+const controllers = require("../controllers/userController");
+const router = express.Router();
+
+router.route("/user").get(controllers.getAllUsers);
+
+router.route("/user").post(controllers.createUser);
+
+router.route("/user/:id").get(controllers.getUserById);
+
+router.route("/user/:id").put(controllers.updateUserInfo);
+
+router.route("/user/:id").delete(controllers.deleteUser);
+
+module.exports = router;
+
+```
+
+#### Контролер
+```js
+const AppError = require("../utils/appError");
+const dbConnect = require("../services/database");
+
+exports.getAllUsers = (req, res, next) => {
+    dbConnect.query("SELECT * FROM user", function (err, data, fields) {
+        if (err) return next(new AppError(err));
+        res.status(200).json({
+            status: "success",
+            length: data?.length,
+            data: data,
+        });
+    });
+};
+
+exports.createUser = (req, res, next) => {
+    if (!req.body) return next(new AppError("No form data found", 404));
+    const values = [
+        req.body.id,
+        req.body.password,
+        req.body.name,
+        req.body.surname,
+        req.body.nickname,
+        req.body.email,
+        req.body.picture,
+        req.body.Role_id,
+    ];
+
+    dbConnect.query(
+        "INSERT INTO user (id, password, name, surname, nickname, email, picture, Role_id) VALUES(?)",
+        [values],
+        function (err, data, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "user added",
+            });
+        }
+    );
+};
+
+exports.getUserById = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No user id found", 404));
+    }
+    dbConnect.query(
+        "SELECT * FROM user WHERE id = ?",
+        [req.params.id],
+        function (err, data, fields) {
+            if (data.length === 0) return next(new AppError("User not found", 404))
+            if (err) return next(new AppError(err, 500));
+            res.status(200).json({
+                status: "success",
+                length: data?.length,
+                data: data,
+            });
+        }
+    );
+};
+
+exports.updateUserInfo = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No user id found", 404));
+    }
+    dbConnect.query(
+        "UPDATE user SET password=?, name=?, surname=?, nickname=?, email=?, picture=?, Role_id=? WHERE id=?",
+        [
+            req.body.password,
+            req.body.name,
+            req.body.surname,
+            req.body.nickname,
+            req.body.email,
+            req.body.picture,
+            req.body.Role_id,
+            req.params.id,
+        ],
+        function (err, data, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "user info updated",
+            });
+        }
+    );
+};
+
+exports.deleteUser = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No todo id found", 404));
+    }
+    dbConnect.query(
+        "DELETE FROM user WHERE id=?",
+        [req.params.id],
+        function (err, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "user deleted",
+            });
+        }
+    );
+};
+
+```
+
+### CRUD для опитувань
+
+#### Маршрути
+
+```js
+const express = require("express");
+const controllers = require("../controllers/quizController");
+const router = express.Router();
+
+router.route("/quiz").get(controllers.getAllQuizes);
+
+router.route("/quiz").post(controllers.createQuiz);
+
+router.route("/quiz/:id").get(controllers.getQuizById);
+
+router.route("/quiz/:id").put(controllers.updateQuiz);
+
+router.route("/quiz/:id").delete(controllers.deleteQuiz);
+
+module.exports = router;
+
+```
+
+#### Контролер
+```js
+const AppError = require("../utils/appError");
+const dbConnect = require("../services/database");
+
+exports.getAllQuizes = (req, res, next) => {
+    dbConnect.query("SELECT * FROM quiz", function (err, data, fields) {
+        if (err) return next(new AppError(err));
+        res.status(200).json({
+            status: "success",
+            length: data?.length,
+            data: data,
+        });
+    });
+};
+
+exports.createQuiz = (req, res, next) => {
+    if (!req.body) return next(new AppError("No form data found", 404));
+    const values = [
+        req.body.description,
+        req.body.name,
+    ];
+
+    dbConnect.query(
+        "INSERT INTO quiz (description, name) VALUES(?)",
+        [values],
+        function (err, data, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "quiz added",
+            });
+        }
+    );
+};
+
+exports.getQuizById = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No quiz id found", 404));
+    }
+    dbConnect.query(
+        "SELECT * FROM quiz WHERE id = ?",
+        [req.params.id],
+        function (err, data, fields) {
+            if (data.length === 0) return next(new AppError("Quiz not found", 404))
+            if (err) return next(new AppError(err, 500));
+            res.status(200).json({
+                status: "success",
+                length: data?.length,
+                data: data,
+            });
+        }
+    );
+};
+
+exports.updateQuiz = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No quiz id found", 404));
+    }
+    dbConnect.query(
+        "UPDATE quiz SET description=?, name=? WHERE id=?",
+        [
+            req.body.description,
+            req.body.name,
+            req.params.id,
+        ],
+        function (err, data, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "quiz updated",
+            });
+        }
+    );
+};
+
+exports.deleteQuiz = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No todo id found", 404));
+    }
+    dbConnect.query(
+        "DELETE FROM quiz WHERE id=?",
+        [req.params.id],
+        function (err, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "quiz deleted",
+            });
+        }
+    );
+};
+
+```
+### CRUD для питань
+
+#### Маршрути
+
+```js
+const express = require("express");
+const controllers = require("../controllers/questionController");
+const router = express.Router();
+
+router.route("/question").get(controllers.getAllQuestions);
+
+router.route("/question").post(controllers.createQuestion);
+
+router.route("/question/:id").get(controllers.getQuestionById);
+
+router.route("/question/:id").put(controllers.updateQuestion);
+
+router.route("/question/:id").delete(controllers.deleteQuestion);
+
+module.exports = router;
+
+```
+
+#### Контролер
+
+```js
+const AppError = require("../utils/appError");
+const dbConnect = require("../services/database");
+
+exports.getAllQuestions = (req, res, next) => {
+    dbConnect.query("SELECT * FROM question", function (err, data, fields) {
+        if (err) return next(new AppError(err));
+        res.status(200).json({
+            status: "success",
+            length: data?.length,
+            data: data,
+        });
+    });
+};
+
+exports.createQuestion = (req, res, next) => {
+    if (!req.body) return next(new AppError("No form data found", 404));
+    const values = [
+        req.body.id,
+        req.body.type,
+        req.body.number,
+        req.body.description,
+        req.body.Quiz_id,
+    ];
+
+    dbConnect.query(
+        "INSERT INTO question (id, type, number, description, Quiz_id) VALUES(?)",
+        [values],
+        function (err, data, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "question added",
+            });
+        }
+    );
+};
+
+exports.getQuestionById = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No question id found", 404));
+    }
+    dbConnect.query(
+        "SELECT * FROM question WHERE id = ?",
+        [req.params.id],
+        function (err, data, fields) {
+            if (data.length === 0) return next(new AppError("Question not found", 404))
+            if (err) return next(new AppError(err, 500));
+            res.status(200).json({
+                status: "success",
+                length: data?.length,
+                data: data,
+            });
+        }
+    );
+};
+
+exports.updateQuestion = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No question id found", 404));
+    }
+    dbConnect.query(
+        "UPDATE question SET type=?, number=?, description=? WHERE id=?",
+        [
+            req.body.type,
+            req.body.number,
+            req.body.description,
+            req.params.id,
+        ],
+        function (err, data, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "question updated",
+            });
+        }
+    );
+};
+
+exports.deleteQuestion = (req, res, next) => {
+    if (!req.params.id) {
+        return next(new AppError("No todo id found", 404));
+    }
+    dbConnect.query(
+        "DELETE FROM question WHERE id=?",
+        [req.params.id],
+        function (err, fields) {
+            if (err) return next(new AppError(err, 500));
+            res.status(201).json({
+                status: "success",
+                message: "question deleted",
+            });
+        }
+    );
+};
+
+```
+
