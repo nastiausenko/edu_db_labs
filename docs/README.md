@@ -7,7 +7,7 @@ footer: "ECL 2.0 Licensed | Copyright © [YYYY] [Your Name]"
 ---
 
 
-**Виконавла:** 
+**Виконала:** 
 
 *студентка 2-го курсу, групи ІМ-23*<span padding-right:5em></span> **Анастасія Усенко nastau452@gmail.com tg:@nastia_u** <br/>
 
